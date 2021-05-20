@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="stylesheet" href="./styles/vs2015.css">
+<script src="./highlight.pack.js"></script>
+<script>hljs.highlightAll();</script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+
+<html>
+
+<head>
+    <title>pysearch</title>
+    <script src="https://unpkg.com/vue"></script>
+</head>
+
+<div id="app">
+    <input type="text" class="bar" v-model="query" @change="Fetch" />
+    <div v-for="item in items" style="margin-top: 1%;">
+        <div class=" content">
+            <highlightjs autodetect :code="item.content" />
+        </div>
+    </div>
+</div>
+
+<script>
+    Vue.use(hljs.vuePlugin);
+    new Vue({
+        el: "#app",
+        "data": {
+            query: "",
+            items: [],
+        },
+        computed: {
+            Fetch: function () {
+                if (this.query != "") {
+                    async function Query(view) {
+                        const headers = {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        };
+                        const url = "http://127.0.0.1:5000/get/".concat(view.query)
+                        const response = await fetch(url, { headers }, method = "GET");
+                        view.items = await response.json();
+                    };
+                    Query(this);
+                }
+                this.items = [];
+                return [];
+            }
+        }
+    })
+</script>
+
+<style scoped>
+    .bar {
+        background-color: teal;
+        color: white;
+        justify-content: center;
+        align-items: center;
+        display: flex;
+        margin-top: 1%;
+        width: 50%;
+        height: 30px;
+        margin-left: 25%;
+        margin-right: 25%;
+        font-size: 15px;
+        font-family: 'Courier New', Courier, monospace;
+        border: 2px;
+        padding: 0% 1%;
+    }
+
+    .content {
+        justify-content: center;
+        align-items: center;
+        display: flex;
+        width: 40%;
+        margin-left: 30%;
+        margin-right: 30%;
+        margin-bottom: 1px;
+        border-color: bisque;
+        border: 1px solid teal;
+        border-left: #1E1E1E;
+        border-right: #1E1E1E;
+        border-top: #1E1E1E;
+        border-width: 130%;
+    }
+
+    html {
+        font-size: 14px;
+        background-color: #1E1E1E;
+    }
+</style>
+
+</html>
