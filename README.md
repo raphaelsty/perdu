@@ -1,7 +1,7 @@
 ## Perdu
 
 Perdu is a local and minimalist search engine for python code. Perdu explores all python scripts and 
-notebooks to index them with ElasticSearch. The perimeter of Perdu is limited for personnal usage 
+jupyter notebooks to index them with ElasticSearch. The perimeter of Perdu is limited for personnal usage 
 to a local machine.
 
 ![](perdu.gif)
@@ -38,6 +38,12 @@ perdu start
 ```
 
 The flask app will run by default on the port `5000`.
+
+To open the search engine, run:
+
+```sh
+perdu open
+```
 
 #### Index
 

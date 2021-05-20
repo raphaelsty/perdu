@@ -19,6 +19,7 @@ app = create_app()
 def start(arg):
     if arg == "start":
         # lsof -i:9200
+        # lsof -i:5000
         # kill -9 <PID>
         webbrowser.open(os.path.join("file://" + here, "web/perdu.html"))
         app.run()
@@ -27,3 +28,6 @@ def start(arg):
         print("Indexing every python files.")
         r = requests.get("http://localhost:5000/init/")
         print(r.json())
+
+    elif arg == "open":
+        webbrowser.open(os.path.join("file://" + here, "web/perdu.html"))
