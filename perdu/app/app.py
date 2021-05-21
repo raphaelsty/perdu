@@ -64,6 +64,29 @@ def metadata_notebook(file):
             }
 
 
+def metadata_full_notebook(file, id):
+    """Read code of notebooks."""
+    with open(file) as fp:
+        notebook = read(fp, NO_CONVERT)
+
+    if "cells" in notebook:
+        cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
+
+        content = ""
+        for cell in cells:
+            content += "\n" + cell["source"]
+
+        return {
+            "_index": "full_notebook",
+            "_id": id,
+            "_source": {
+                "file": file,
+                "date": time.ctime(os.path.getmtime(file)),
+                "content": content,
+            },
+        }
+
+
 def metadata_file(file, id):
     """Read files and export complete file."""
     with open(file) as f:
@@ -123,6 +146,9 @@ def scan_files(es, list_files, list_notebooks):
                 contents.append(item)
                 id += 1
 
+            contents.append(metadata_full_notebook(file, id))
+            id += 1
+
         except UnicodeDecodeError:
             pass
 
@@ -134,7 +160,7 @@ def create_app():
     app = Flask(__name__)
 
     app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
-    app.config["SECRET_KEY"] = "the quick brown fox jumps over the lazy   dog"
+    app.config["SECRET_KEY"] = "the quick brown fox jumps over the lazy dog"
     app.config["CORS_HEADERS"] = "Content-Type"
 
     cors = CORS(app, resources={r"/foo": {"origins": "*"}})
@@ -143,17 +169,15 @@ def create_app():
     es = Elasticsearch()
 
     # Init index
-    for index in ["notebook", "function", "classe"]:
+    for index in ["notebook", "function", "full_notebook", "classe"]:
         if not es.indices.exists(index=index):
             es.indices.create(index=index)
-
-    fields = ["date", "path", "content"]
 
     @app.route("/init/")
     @cross_origin(origin="localhost", headers=["Content-Type", "Authorization"])
     def init():
 
-        for index in ["notebook", "function", "classe"]:
+        for index in ["notebook", "function", "full_notebook", "classe"]:
             es.delete_by_query(index=index, body={"query": {"match_all": {}}})
             es.indices.refresh(index=index)
 
@@ -161,7 +185,7 @@ def create_app():
         list_notebooks = walk(extension=".ipynb")
         scan_files(es, list_files, list_notebooks)
 
-        for index in ["notebook", "function", "classe"]:
+        for index in ["notebook", "function", "full_notebook", "classe"]:
             es.indices.refresh(index=index)
 
         return jsonify({"status": "Index intialized."}), 200
@@ -172,7 +196,7 @@ def create_app():
 
         match = []
 
-        for index in ["notebook", "function", "classe"]:
+        for index in ["notebook", "function", "full_notebook", "classe"]:
 
             response = es.search(
                 index=index,
