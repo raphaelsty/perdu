@@ -194,17 +194,26 @@ def create_app():
     @cross_origin(origin="localhost", headers=["Content-Type", "Authorization"])
     def get(content):
 
+        duplicates = []
+
         match = []
 
-        for index in ["notebook", "function", "full_notebook", "classe"]:
+        for query in [
+            {"match": {"content": content}},
+            {"query_string": {"query": f"*{content}*", "fields": ["content"]}},
+        ]:
 
-            response = es.search(
-                index=index,
-                body={"query": {"query_string": {"query": f"*{content}*", "fields": ["content"]}}},
-            )
+            for index in ["notebook", "function", "full_notebook", "classe"]:
 
-            for r in response["hits"]["hits"]:
-                match.append(r["_source"])
+                response = es.search(
+                    index=index,
+                    body={"query": query},
+                )
+
+                for r in response["hits"]["hits"]:
+                    if r["_id"] not in duplicates:
+                        match.append(r["_source"])
+                        duplicates.append(r["_id"])
 
         return jsonify(match), 200
 
