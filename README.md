@@ -13,7 +13,7 @@ pip install git+https://github.com/raphaelsty/perdu
 ```
 
 We need to set the PERDU environment variable. All python and notebook files
-contained in the directory and subdirectories of the environment variable will be indexed.
+contained in the directory and subdirectories will be indexed.
 
 ```sh
 export PERDU=/PATH_YOU_WANT_TO_INDEX
@@ -25,11 +25,7 @@ For example, I will index my files in the Documents sub-directory `export PERDU=
 
 It is necessary to have ElasticSearch installed to run the search engine. More details [here for installation](https://www.elastic.co/guide/en/elasticsearch/reference/current/install-elasticsearch.html).
 
-To start the application, you must first start the ElasticSearch server with the command:
-
-```sh
-elasticsearch
-```
+To start the application, you must first assert that you the command line `elasticsearch` start the ElasticSearch server. The ElasticSearch server will start automatically using this command when launching the API.
 
 To start the flask application and open the search engine, run:
 
