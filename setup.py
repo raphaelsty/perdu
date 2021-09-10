@@ -9,6 +9,9 @@ here = os.path.abspath(os.path.dirname(__file__))
 with io.open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = "\n" + f.read()
 
+with open("requirements.txt") as f:
+    required = f.read().splitlines()
+
 # Load the package's __version__.py module as a dictionary.
 about = {}
 with open(os.path.join(here, "perdu", "__version__.py")) as f:
@@ -32,16 +35,9 @@ setup(
     ],
     packages=find_packages(),
     include_package_data=True,
+    install_requires=required,
     python_requires=">=3.7",
     entry_points={
         "console_scripts": ["perdu=perdu:start"],
     },
-    install_requires=[
-        "Flask>=2.0.0",
-        "Flask-Cors>=3.0.10",
-        "elasticsearch>=7.12.1",
-        "nbformat>=5.1.2",
-        "regex>=2021.3.17",
-        "requests>=2.25.1",
-    ],
 )

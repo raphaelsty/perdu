@@ -2,7 +2,7 @@ import os
 import re
 import time
 
-from elasticsearch import Elasticsearch, helpers
+from elasticsearch import helpers
 from flask import Flask, jsonify
 from flask_cors import CORS, cross_origin
 from nbformat import NO_CONVERT, read
@@ -155,7 +155,7 @@ def scan_files(es, list_files, list_notebooks):
     helpers.bulk(es, contents)
 
 
-def create_app():
+def create_app(es):
 
     app = Flask(__name__)
 
@@ -165,8 +165,6 @@ def create_app():
 
     cors = CORS(app, resources={r"/foo": {"origins": "*"}})
     app.config["CORS_HEADERS"] = "Content-Type"
-
-    es = Elasticsearch()
 
     # Init index
     for index in ["notebook", "function", "full_notebook", "classe"]:
