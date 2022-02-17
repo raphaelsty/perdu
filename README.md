@@ -1,8 +1,7 @@
 ## Perdu
 
-Perdu is a local and minimalist search engine for python code. Perdu explores all python scripts and
-jupyter notebooks to index them with Cherche. The perimeter of Perdu is limited for personnal usage
-to a local machine.
+Perdu is a local and minimalist search engine for Python code. Perdu explores all python scripts and
+jupyter notebooks to index them with [Cherche](https://github.com/raphaelsty/cherche). It is a very useful tool to search for a piece of code that you have lost somewhere in a notebook.
 
 ![](perdu.gif)
 
