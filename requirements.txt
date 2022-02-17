@@ -1,8 +1,8 @@
 click == 8.0.1
-elasticsearch == 7.12.1
 Flask == 2.0.1
 Flask-Cors == 3.0.10
 nbformat == 5.1.2
 regex == 2021.3.17
-requests == 2.25.1
+requests == 2.27.1
 rich == 10.1.0
+cherche == 0.0.5

@@ -12,14 +12,9 @@ with io.open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 with open("requirements.txt") as f:
     required = f.read().splitlines()
 
-# Load the package's __version__.py module as a dictionary.
-about = {}
-with open(os.path.join(here, "perdu", "__version__.py")) as f:
-    exec(f.read(), about)
-
 setup(
     name="perdu",
-    version=about["__version__"],
+    version="0.0.3",
     author="Raphael Sourty",
     author_email="raphael.sourty@gmail.com",
     description="Minimalist search engine for python code and notebooks.",

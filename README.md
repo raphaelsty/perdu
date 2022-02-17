@@ -1,7 +1,7 @@
 ## Perdu
 
-Perdu is a local and minimalist search engine for python code. Perdu explores all python scripts and 
-jupyter notebooks to index them with ElasticSearch. The perimeter of Perdu is limited for personnal usage 
+Perdu is a local and minimalist search engine for python code. Perdu explores all python scripts and
+jupyter notebooks to index them with Cherche. The perimeter of Perdu is limited for personnal usage
 to a local machine.
 
 ![](perdu.gif)
@@ -12,22 +12,22 @@ to a local machine.
 pip install git+https://github.com/raphaelsty/perdu
 ```
 
-We need to set the PERDU environment variable. All python and notebook files
-contained in the directory and subdirectories will be indexed.
+UI dependancies:
 
 ```sh
-export PERDU=/PATH_YOU_WANT_TO_INDEX
+npm install highlight.js@10.7.1
+npm install vue@2
 ```
-
-For example, I will index my files in the Documents sub-directory `export PERDU=/Users/raphaelsourty/Documents`.
 
 #### Quick start
 
-It is necessary to have ElasticSearch installed to run the search engine. More details [here for installation](https://www.elastic.co/guide/en/elasticsearch/reference/current/install-elasticsearch.html).
+You will first need to index documents. The `-p` parameter allows to choose the set of folders to be indexed.
 
-To start the application, you must first assert that you the command line `elasticsearch` start the ElasticSearch server. The ElasticSearch server will start automatically using this command when launching the API.
+```sh
+perdu scan -p .
+```
 
-To start the flask application and open the search engine, run:
+To start the app, run:
 
 ```sh
 perdu start
@@ -35,32 +35,21 @@ perdu start
 
 The flask app will run by default on the port `5000`.
 
-To open the search engine, run:
+To open the web app, run:
 
 ```sh
 perdu open
 ```
 
+You can close the app using `ctrl+c`.
+
 #### Index
-
-To index documents especially at the first startup, run:
-
-```sh
-perdu scan
-```
 
 It is necessary to have launched the application with `perdu start` to index the documents.
 
 #### Debug
-Sometimes an application runs in the background and we are forced to close the process without being able to use ctrl+c.
 
-To find the process ID (PID) ElasticSearch:
-
-```sh
-lsof -i:9200
-```
-
-To find the process identifier (PID) Flask:
+The application runs in the background and we may be forced to close the process without being able to use `ctrl+c`. To find the process identifier (PID) Flask:
 
 ```sh
 lsof -i:5000

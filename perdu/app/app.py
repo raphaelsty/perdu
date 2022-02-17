@@ -1,11 +1,13 @@
 import os
+import pickle
 import re
 import time
 
-from elasticsearch import helpers
+from cherche import retrieve
 from flask import Flask, jsonify
 from flask_cors import CORS, cross_origin
 from nbformat import NO_CONVERT, read
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # export FLASK_APP=app.py
 # export FLASK_ENV=development
@@ -18,10 +20,11 @@ __all__ = [
     "metadata_notebook",
     "metadata_file",
     "scan_files",
+    "init_pipeline",
 ]
 
 
-def walk(path=os.environ["PERDU"], extension=".py"):
+def walk(path, extension):
     files = []
     for d, _, f in os.walk(path):
         for file in f:
@@ -37,12 +40,10 @@ def metadata_func(regex, file):
 
     for func in regex.finditer(content):
         yield {
-            "_index": "function",
-            "_source": {
-                "file": file,
-                "date": time.ctime(os.path.getmtime(file)),
-                "content": func.group(0),
-            },
+            "id": file,
+            "type": "function",
+            "date": time.ctime(os.path.getmtime(file)),
+            "content": func.group(0),
         }
 
 
@@ -55,16 +56,14 @@ def metadata_notebook(file):
         cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
         for cell in cells:
             yield {
-                "_index": "notebook",
-                "_source": {
-                    "file": file,
-                    "date": time.ctime(os.path.getmtime(file)),
-                    "content": cell["source"],
-                },
+                "id": file,
+                "type": "notebook",
+                "date": time.ctime(os.path.getmtime(file)),
+                "content": cell["source"],
             }
 
 
-def metadata_full_notebook(file, id):
+def metadata_full_notebook(file):
     """Read code of notebooks."""
     with open(file) as fp:
         notebook = read(fp, NO_CONVERT)
@@ -77,35 +76,29 @@ def metadata_full_notebook(file, id):
             content += "\n" + cell["source"]
 
         return {
-            "_index": "full_notebook",
-            "_id": id,
-            "_source": {
-                "file": file,
-                "date": time.ctime(os.path.getmtime(file)),
-                "content": content,
-            },
+            "id": f"{file}_full_notebook",
+            "type": "full_notebook",
+            "date": time.ctime(os.path.getmtime(file)),
+            "content": content,
         }
 
 
-def metadata_file(file, id):
+def metadata_file(file):
     """Read files and export complete file."""
     with open(file) as f:
         content = f.read()
 
     return {
-        "_index": "classe",
-        "_id": id,
-        "_source": {
-            "file": file,
-            "date": time.ctime(os.path.getmtime(file)),
-            "content": content,
-        },
+        "id": f"{file}_full_script",
+        "type": "full_script",
+        "date": time.ctime(os.path.getmtime(file)),
+        "content": content,
     }
 
 
-def scan_files(es, list_files, list_notebooks):
+def scan_files(list_files, list_notebooks):
     """Scan python files and notebooks and index them using ElasticSearch."""
-    contents = []
+    files, functions, cells, notebooks = [], [], [], []
 
     regex = re.compile(
         "((?:^[ \t]*)def \w+\(.*\): *(?=.*?[^ \t\n]).*\r?\n)"
@@ -118,101 +111,90 @@ def scan_files(es, list_files, list_notebooks):
         re.MULTILINE,
     )
 
-    id = 0
-
-    for id, file in enumerate(list_files):
+    for file in list_files:
 
         try:
 
-            item = metadata_file(file, id)
-            id += 1
+            files.append(metadata_file(file))
 
             for item in metadata_func(regex, file):
-                item["_id"] = id
-                contents.append(item)
-                id += 1
-
-            contents.append(item)
+                functions.append(item)
 
         except UnicodeDecodeError:
             pass
 
-    for id, file in enumerate(list_notebooks):
+    for file in list_notebooks:
 
         try:
 
             for item in metadata_notebook(file):
-                item["_id"] = id
-                contents.append(item)
-                id += 1
+                cells.append(item)
 
-            contents.append(metadata_full_notebook(file, id))
-            id += 1
+            notebooks.append(metadata_full_notebook(file))
 
         except UnicodeDecodeError:
             pass
 
-    helpers.bulk(es, contents)
+    return cells, notebooks, functions, files
 
 
-def create_app(es):
+def create_app(here):
 
     app = Flask(__name__)
-
     app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
-    app.config["SECRET_KEY"] = "the quick brown fox jumps over the lazy dog"
     app.config["CORS_HEADERS"] = "Content-Type"
+    CORS(app)
 
-    cors = CORS(app, resources={r"/foo": {"origins": "*"}})
-    app.config["CORS_HEADERS"] = "Content-Type"
-
-    # Init index
-    for index in ["notebook", "function", "full_notebook", "classe"]:
-        if not es.indices.exists(index=index):
-            es.indices.create(index=index)
-
-    @app.route("/init/")
-    @cross_origin(origin="localhost", headers=["Content-Type", "Authorization"])
-    def init():
-
-        for index in ["notebook", "function", "full_notebook", "classe"]:
-            es.delete_by_query(index=index, body={"query": {"match_all": {}}})
-            es.indices.refresh(index=index)
-
-        list_files = walk()
-        list_notebooks = walk(extension=".ipynb")
-        scan_files(es, list_files, list_notebooks)
-
-        for index in ["notebook", "function", "full_notebook", "classe"]:
-            es.indices.refresh(index=index)
-
-        return jsonify({"status": "Index intialized."}), 200
+    with open(os.path.join(here, "search.pkl"), "rb") as store:
+        search = pickle.load(store)
 
     @app.route("/get/<content>", methods=["GET"])
-    @cross_origin(origin="localhost", headers=["Content-Type", "Authorization"])
+    @cross_origin()
     def get(content):
-
-        duplicates = []
-
-        match = []
-
-        for query in [
-            {"match": {"content": content}},
-            {"query_string": {"query": f"*{content}*", "fields": ["content"]}},
-        ]:
-
-            for index in ["notebook", "function", "full_notebook", "classe"]:
-
-                response = es.search(
-                    index=index,
-                    body={"query": query},
-                )
-
-                for r in response["hits"]["hits"]:
-                    if r["_id"] not in duplicates:
-                        match.append(r["_source"])
-                        duplicates.append(r["_id"])
-
-        return jsonify(match), 200
+        match = search(content)
+        return jsonify([doc for doc in match]), 200
 
     return app
+
+
+def init_pipeline(p, here):
+    list_files = walk(path=p, extension=".py")
+    list_notebooks = walk(path=p, extension=".ipynb")
+
+    search = None
+    duplicates = {}
+    for documents in scan_files(list_files, list_notebooks):
+
+        filter = []
+        for doc in documents:
+            if doc["content"] in duplicates:
+                continue
+            elif doc["content"]:
+                duplicates[doc["content"]] = True
+                filter.append(doc)
+
+        if search is None and filter:
+            search = (
+                retrieve.TfIdf(
+                    key="id",
+                    on=["content", "id"],
+                    documents=filter,
+                    tfidf=TfidfVectorizer(lowercase=True, ngram_range=(3, 7), analyzer="char_wb"),
+                    k=5,
+                )
+                + filter
+            )
+        elif filter:
+            search = search | (
+                retrieve.TfIdf(
+                    key="id",
+                    on=["content", "id"],
+                    documents=filter,
+                    tfidf=TfidfVectorizer(lowercase=True, ngram_range=(3, 7), analyzer="char_wb"),
+                    k=5,
+                )
+                + filter
+            )
+
+    with open(os.path.join(here, "search.pkl"), "wb") as store:
+        pickle.dump(search, store)
