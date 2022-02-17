@@ -26,44 +26,46 @@ __all__ = [
 
 def walk(path, extension):
     files = []
-    for d, _, f in os.walk(path):
-        for file in f:
+    for i, (d, _, f) in enumerate(os.walk(path)):
+        for j, file in enumerate(f):
             if file.endswith(extension):
-                files.append((os.path.join(d, file)))
+                id = f"{extension}_{i + j}"
+                files.append((id, os.path.join(d, file)))
+                print(file)
     return files
 
 
-def metadata_func(regex, file):
+def metadata_func(regex, file, id):
     """Read functions inside python files."""
     with open(file) as f:
         content = f.read()
 
-    for func in regex.finditer(content):
+    for i, func in enumerate(regex.finditer(content)):
         yield {
-            "id": file,
+            "id": f"{id}_{i}",
             "type": "function",
             "date": time.ctime(os.path.getmtime(file)),
             "content": func.group(0),
         }
 
 
-def metadata_notebook(file):
+def metadata_notebook(file, id):
     """Read code of notebooks."""
     with open(file) as fp:
         notebook = read(fp, NO_CONVERT)
 
     if "cells" in notebook:
         cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
-        for cell in cells:
+        for i, cell in enumerate(cells):
             yield {
-                "id": file,
+                "id": f"{id}_{i}",
                 "type": "notebook",
                 "date": time.ctime(os.path.getmtime(file)),
                 "content": cell["source"],
             }
 
 
-def metadata_full_notebook(file):
+def metadata_full_notebook(file, id):
     """Read code of notebooks."""
     with open(file) as fp:
         notebook = read(fp, NO_CONVERT)
@@ -76,20 +78,20 @@ def metadata_full_notebook(file):
             content += "\n" + cell["source"]
 
         return {
-            "id": f"{file}_full_notebook",
+            "id": id,
             "type": "full_notebook",
             "date": time.ctime(os.path.getmtime(file)),
             "content": content,
         }
 
 
-def metadata_file(file):
+def metadata_file(file, id):
     """Read files and export complete file."""
     with open(file) as f:
         content = f.read()
 
     return {
-        "id": f"{file}_full_script",
+        "id": id,
         "type": "full_script",
         "date": time.ctime(os.path.getmtime(file)),
         "content": content,
@@ -97,7 +99,7 @@ def metadata_file(file):
 
 
 def scan_files(list_files, list_notebooks):
-    """Scan python files and notebooks and index them using ElasticSearch."""
+    """Scan python files and notebooks."""
     files, functions, cells, notebooks = [], [], [], []
 
     regex = re.compile(
@@ -111,31 +113,31 @@ def scan_files(list_files, list_notebooks):
         re.MULTILINE,
     )
 
-    for file in list_files:
+    for id, file in list_files:
 
         try:
 
-            files.append(metadata_file(file))
+            files.append(metadata_file(file, id))
 
-            for item in metadata_func(regex, file):
+            for item in metadata_func(regex, file, id):
                 functions.append(item)
 
         except UnicodeDecodeError:
             pass
 
-    for file in list_notebooks:
+    for id, file in list_notebooks:
 
         try:
 
-            for item in metadata_notebook(file):
+            for item in metadata_notebook(file, id):
                 cells.append(item)
 
-            notebooks.append(metadata_full_notebook(file))
+            notebooks.append(metadata_full_notebook(file, id))
 
         except UnicodeDecodeError:
             pass
 
-    return cells, notebooks, functions, files
+    return notebooks, files, cells, functions
 
 
 def create_app(here):
@@ -163,23 +165,39 @@ def init_pipeline(p, here):
 
     search = None
     duplicates = {}
+    total = []
     for documents in scan_files(list_files, list_notebooks):
 
         filter = []
         for doc in documents:
-            if doc["content"] in duplicates:
+
+            if doc is None:
                 continue
+
+            if doc["content"] in duplicates or doc["id"] in duplicates:
+                continue
+
             elif doc["content"]:
                 duplicates[doc["content"]] = True
+                duplicates[doc["id"]] = True
                 filter.append(doc)
+
+        if filter:
+            total = total + filter
 
         if search is None and filter:
             search = (
                 retrieve.TfIdf(
                     key="id",
-                    on=["content", "id"],
+                    on=["content"],
                     documents=filter,
-                    tfidf=TfidfVectorizer(lowercase=True, ngram_range=(3, 7), analyzer="char_wb"),
+                    tfidf=TfidfVectorizer(
+                        lowercase=True,
+                        max_df=0.9,
+                        ngram_range=(3, 10),
+                        analyzer="char_wb",
+                        decode_error="replace",
+                    ),
                     k=5,
                 )
                 + filter
@@ -188,13 +206,20 @@ def init_pipeline(p, here):
             search = search | (
                 retrieve.TfIdf(
                     key="id",
-                    on=["content", "id"],
+                    on=["content"],
                     documents=filter,
-                    tfidf=TfidfVectorizer(lowercase=True, ngram_range=(3, 7), analyzer="char_wb"),
+                    tfidf=TfidfVectorizer(
+                        lowercase=True,
+                        max_df=0.9,
+                        ngram_range=(3, 10),
+                        analyzer="char_wb",
+                        decode_error="replace",
+                    ),
                     k=5,
                 )
                 + filter
             )
 
+    # search.add(documents)
     with open(os.path.join(here, "search.pkl"), "wb") as store:
         pickle.dump(search, store)
