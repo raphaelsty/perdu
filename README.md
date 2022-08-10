@@ -11,13 +11,6 @@ jupyter notebooks to index them with [Cherche](https://github.com/raphaelsty/che
 pip install git+https://github.com/raphaelsty/perdu
 ```
 
-UI dependancies:
-
-```sh
-npm install highlight.js@10.7.1
-npm install vue@2
-```
-
 #### Quick start
 
 You will first need to index documents. The `-p` parameter allows to choose the set of folders to be indexed.
